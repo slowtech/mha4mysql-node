@@ -63,12 +63,12 @@ sub get_variable($$) {
 
 sub get_version($) {
   my $dbh = shift;
-  return get_variable( $dbh, Get_Version_SQL );
+  return get_variable( $dbh, Get_Version_SQL ); # SELECT VERSION() AS Value
 }
 
 sub get_log_error_file($) {
   my $dbh = shift;
-  return get_variable( $dbh, Show_Log_Error_File_SQL );
+  return get_variable( $dbh, Show_Log_Error_File_SQL ); # SHOW VARIABLES LIKE 'log_error'
 }
 
 sub get_relay_log_info_type {
@@ -77,7 +77,7 @@ sub get_relay_log_info_type {
   my $type;
   $mysql_version = get_version($dbh) unless ($mysql_version);
   if ( !is_mariadb($mysql_version) && MHA::NodeUtil::mysql_version_ge( $mysql_version, "5.6.2" ) ) {
-    $type = get_variable( $dbh, Get_Relay_Log_Info_Type_SQL );
+    $type = get_variable( $dbh, Get_Relay_Log_Info_Type_SQL ); # SELECT \@\@global.relay_log_info_repository AS Value
   }
   unless ( defined($type) ) {
     $type = "FILE";
@@ -87,25 +87,25 @@ sub get_relay_log_info_type {
 
 sub get_relay_dir_file_from_table($) {
   my $dbh  = shift;
-  my $sth  = $dbh->prepare(Get_Relay_Log_File_SQL);
+  my $sth  = $dbh->prepare(Get_Relay_Log_File_SQL); # SELECT Relay_log_name FROM mysql.slave_relay_log_info
   my $ret  = $sth->execute();
   my $href = $sth->fetchrow_hashref;
   if ( !defined($href) || !defined( $href->{Relay_log_name} ) ) {
-    return;
+    return; #  如果查询结果为空或者没有找到'Relay_log_name'字段，则返回空值
   }
   my $current_relay_log_file = $href->{Relay_log_name};
   my $datadir = get_variable( $dbh, Get_Datadir_SQL );
   my $relay_dir;
-  unless ( $current_relay_log_file =~ m/^\// ) {
+  unless ( $current_relay_log_file =~ m/^\// ) { # 检查$current_relay_log_file是否以斜杠开头
     $current_relay_log_file =~ s/^\.\///;
     $current_relay_log_file = $datadir . "/" . $current_relay_log_file;
     $relay_dir              = $datadir;
-    $relay_dir =~ s/\/$//;
+    $relay_dir =~ s/\/$//; # 用于将$relay_dir字符串末尾的斜杠（/）替换为空字符串。
   }
   else {
-    $relay_dir = dirname($current_relay_log_file);
+    $relay_dir = dirname($current_relay_log_file); # dirname是一个内置函数，用于获取路径中的目录部分
   }
-  my $relay_log_basename = basename($current_relay_log_file);
+  my $relay_log_basename = basename($current_relay_log_file); # basename函数用于获取路径的基本文件名部分。它去除路径中的目录部分，并返回文件名部分。
   return ( $relay_dir, $relay_log_basename );
 }
 
@@ -117,14 +117,14 @@ sub get_relay_log_info_path {
   my $datadir = get_variable( $dbh, Get_Datadir_SQL );
   $mysql_version = get_version($dbh) unless ($mysql_version);
   if ( MHA::NodeUtil::mysql_version_ge( $mysql_version, "5.1.0" ) ) {
-    $filename = get_variable( $dbh, Get_Relay_Log_Info_SQL );
+    $filename = get_variable( $dbh, Get_Relay_Log_Info_SQL ); # SELECT \@\@global.relay_log_info_file AS Value
   }
 
 #relay_log_info_file was introduced in 5.1. In 5.0, it's fixed to "relay_log.info"
   if ( !defined($filename) ) {
     $filename = "relay-log.info";
   }
-  unless ( $filename =~ m/^\// ) {
+  unless ( $filename =~ m/^\// ) { # unless是一个条件控制结构，用于在条件为假（false）时执行一段代码块。
     $filename =~ s/^\.\///;
     $datadir =~ s/\/$//;
     $relay_log_info_path = $datadir . "/" . $filename;
@@ -137,18 +137,18 @@ sub get_relay_log_info_path {
 
 sub is_relay_log_purge($) {
   my $dbh = shift;
-  return get_variable( $dbh, Is_Relay_Purge_SQL );
+  return get_variable( $dbh, Is_Relay_Purge_SQL ); # SELECT \@\@global.relay_log_purge As Value
 }
 
 sub disable_relay_log_purge($) {
   my $dbh = shift;
-  $dbh->do(Disable_Relay_Purge_SQL);
+  $dbh->do(Disable_Relay_Purge_SQL); # SET GLOBAL relay_log_purge=0
 }
 
 sub purge_relay_logs($) {
   my $dbh = shift;
   $dbh->do(Enable_Relay_Purge_SQL);
-  $dbh->do(Flush_Relay_Logs_SQL);
+  $dbh->do(Flush_Relay_Logs_SQL); # FLUSH NO_WRITE_TO_BINLOG /*!50501 RELAY */ LOGS
 
   # To (almost) make sure that relay log is switched(purged) before setting
   # relay_log_purge=0;
@@ -208,18 +208,18 @@ sub release_advisory_lock_internal($$) {
 sub get_failover_advisory_lock {
   my $dbh     = shift;
   my $timeout = shift;
-  return get_advisory_lock_internal( $dbh, $timeout, Get_Failover_Lock_SQL );
+  return get_advisory_lock_internal( $dbh, $timeout, Get_Failover_Lock_SQL ); # SELECT GET_LOCK('MHA_Master_High_Availability_Failover', ?) AS Value
 }
 
 sub release_failover_advisory_lock($) {
   my $dbh = shift;
-  return release_advisory_lock_internal( $dbh, Release_Failover_Lock_SQL );
+  return release_advisory_lock_internal( $dbh, Release_Failover_Lock_SQL ); # SELECT RELEASE_LOCK('MHA_Master_High_Availability_Failover') As Value
 }
 
 sub get_monitor_advisory_lock {
   my $dbh     = shift;
   my $timeout = shift;
-  return get_advisory_lock_internal( $dbh, $timeout, Get_Monitor_Lock_SQL );
+  return get_advisory_lock_internal( $dbh, $timeout, Get_Monitor_Lock_SQL ); # SELECT GET_LOCK('MHA_Master_High_Availability_Monitor', ?) AS Value
 }
 
 sub release_monitor_advisory_lock($) {
