@@ -22,7 +22,7 @@ package MHA::NodeUtil;
 use strict;
 use warnings FATAL => 'all';
 
-use Carp qw(croak);
+use Carp qw(croak); # croak 是 Carp 模块中的一个函数，用于生成带有堆栈追踪的致命错误信息。当出现错误并且程序无法继续执行时，可以使用 croak 函数来报告错误并退出程序。
 use MHA::NodeConst;
 use File::Path;
 use Errno();
@@ -36,9 +36,9 @@ sub create_dir_if($) {
       mkpath($dir);
       print "done.\n";
     };
-    if ($@) {
+    if ($@) { # 当在Perl中使用eval块时，如果eval块中的代码抛出了异常，错误信息将被存储在$@变量中。如果eval块中的代码没有抛出异常，$@将保持未定义（undefined）。
       my $e = $@;
-      undef $@;
+      undef $@; # 清除 $@ 变量，以便后续代码中的 croak 函数不会将异常再次抛出。
       if ( -d $dir ) {
         print "ok. already exists.\n";
       }
@@ -59,7 +59,7 @@ sub compare_checksum {
   $ssh_port = 22 unless ($ssh_port);
 
   my $local_md5 = `md5sum $local_file`;
-  return 1 if ($?);
+  return 1 if ($?); # 在Perl中，特殊变量 $? 是一个用于获取上一个执行的子进程的退出状态的变量。它用于检查子进程的执行结果，包括退出码和信号信息。如果执行正常，$? 的值将为 0。
   chomp($local_md5);
   $local_md5 = substr( $local_md5, 0, 32 );
   my $ssh_user_host = $ssh_user . '@' . $ssh_host;
@@ -102,7 +102,7 @@ sub file_copy {
     $copy_command .= " >> $log_output 2>&1";
   }
 
-  while ( $retry_count < $max_retries ) {
+  while ( $retry_count < $max_retries ) { # 最多重试三次
     if (
       system($copy_command)
       || compare_checksum(
@@ -127,17 +127,17 @@ sub file_copy {
   return $copy_fail;
 }
 
-sub system_rc($) {
+sub system_rc($) { # 将返回的退出状态码分解为高位和低位的值，以便在需要时进行进一步处理或分析
   my $rc   = shift;
   my $high = $rc >> 8;
   my $low  = $rc & 255;
   return ( $high, $low );
 }
-
+# open( my $out, ">", $file )：使用 open 函数打开一个文件 $file 用于写入，并将文件句柄存储在变量 $out 中。">" 表示以写入模式打开文件。
 sub create_file_if {
   my $file = shift;
   if ( $file && ( !-f $file ) ) {
-    open( my $out, ">", $file ) or croak "$!:$file";
+    open( my $out, ">", $file ) or croak "$!:$file"; # $! 是一个特殊变量，它包含了最近一次系统调用的错误信息
     close($out);
   }
 }
@@ -155,7 +155,7 @@ sub get_ip {
   if ( defined($host) ) {
     ( $err, @bin_addr_host ) = getaddrinfo($host);
     croak "Failed to get IP address on host $host: $err\n" if $err;
-
+    # 使用 getnameinfo 函数和 NI_NUMERICHOST 选项从 @bin_addr_host 数组的第一个元素中提取 IP 地址。
     # We take the first ip address that is returned by getaddrinfo
     ( $err, $addr_host ) = getnameinfo($bin_addr_host[0]->{addr}, NI_NUMERICHOST);
     croak "Failed to convert IP address for host $host: $err\n" if $err;
@@ -198,9 +198,8 @@ sub parse_mysql_version($) {
 
 sub parse_mysql_major_version($) {
   my $str = shift;
-  $str =~ /(\d+)\.(\d+)/;
-  my $strmajor = "$1.$2";
-  my $result = sprintf( '%03d%03d', $strmajor =~ m/(\d+)/g );
+  $str =~ s/\.[^.]+$//;
+  my $result = sprintf( '%03d%03d', $str =~ m/(\d+)/g );
   return $result;
 }
 
@@ -218,7 +217,7 @@ my @shell_escape_chars = (
   '?', '~', '<', '>', '^', '(', ')',    '[',
   ']', '{', '}', '$', ',', ' ', '\x0A', '\xFF'
 );
-
+# 取消 shell 中字符串中的转义字符，以便正确地处理或执行相关的 shell 命令
 sub unescape_for_shell {
   my $str = shift;
   if ( !index( $str, '\\\\' ) ) {
@@ -258,7 +257,7 @@ sub escape_for_shell {
   $ret = "'" . $ret . "'";
   return $ret;
 }
-
+# 对字符串进行 shell 转义
 sub escape_for_mysql_command {
   my $str = shift;
   my $ret = "";
@@ -272,7 +271,7 @@ sub escape_for_mysql_command {
   $ret = "'" . $ret . "'";
   return $ret;
 }
-
+# 可以根据给定的客户端二进制文件名、二进制文件路径和库文件路径生成相应的客户端命令行前缀，包括必要的环境变量设置和路径转义。
 sub client_cli_prefix {
   my ( $exe, $bindir, $libdir ) = @_;
   croak "unexpected client binary $exe\n" unless $exe =~ /^mysql(?:binlog)?$/;
